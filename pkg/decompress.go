@@ -26,14 +26,6 @@ type Tokenizer struct {
 	istring string
 }
 
-func isNumber(s string) bool {
-	_, err := strconv.Atoi(s)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func isBracket(s string) bool {
 	if s == "[" || s == "]" {
 		return true
@@ -89,17 +81,27 @@ func (p *Parser) expression() (string, error) {
 	}
 
 	if token.kind == Number {
+		n, err := strconv.Atoi(token.value)
+		if err != nil {
+			return "", fmt.Errorf("Number could not be parsed, value: %s", token.value)
+		}
+
 		// match opening bracket
 		token, err = p.tokenizer.nextToken()
 		if err != nil {
 			return "", fmt.Errorf("Parsing error, expect opening bracket, error %v", err)
 		}
 		if token.kind != Bracket && token.value != "[" {
-			return "", fmt.Errorf("Parsing error, expected opening bracked, got %s, token.value")
+			return "", fmt.Errorf("Parsing error, expected opening bracked, got %s", token.value)
 		}
 
-		// recusive call
+		// recursive call
 		result, err := p.expression()
+
+		final := ""
+		for i := 0; i < n; i++ {
+			final += result
+		}
 
 		// match closing bracket
 		token, err = p.tokenizer.nextToken()
@@ -107,7 +109,7 @@ func (p *Parser) expression() (string, error) {
 			return "", fmt.Errorf("Parsing error, expected closing bracket, error: %v", err)
 		}
 		if token.kind != Bracket && token.value != "]" {
-			return "", fmt.Errorf("Parsing error, expected closing bracked, got %s, token.value")
+			return "", fmt.Errorf("Parsing error, expected closing bracked, got %s", token.value)
 		}
 
 		// match letter or empty
@@ -116,10 +118,17 @@ func (p *Parser) expression() (string, error) {
 			return "", fmt.Errorf("Parsing error, expected letter or empty, error: %v", err)
 		}
 		if token.kind == Empty {
-			return result, nil
+			return final, nil
 		}
 		if token.kind == Letter {
-			return result + token.value, nil
+			return final + token.value, nil
+		}
+		if token.kind == Number {
+			result2, err := p.expression()
+			if err != nil {
+				return "", fmt.Errorf("Parsing error, in following expression: %v", err)
+			}
+			return final + result2, nil
 		}
 	}
 
@@ -130,7 +139,7 @@ func (p *Parser) expression() (string, error) {
 	return "", fmt.Errorf("Parser error, not match in expression, got token: %s", token.value)
 }
 
-func (p *Parser) decompress(s string) (string, error) {
+func (p *Parser) decompress() (string, error) {
 	result, err := p.expression()
 	if err != nil {
 		return "", err

@@ -41,3 +41,29 @@ func TestNextToken(t *testing.T) {
 		})
 	}
 }
+
+func TestDecompress(t *testing.T) {
+	tt := []struct {
+		input    string
+		expected string
+		err      error
+	}{
+		{"a", "a", nil},
+		{"3[a]", "aaa", nil},
+		{"2[3[a]b]", "aaabaaab", nil},
+		{"3[abc]4[ab]c", "abcabcabcababababc", nil},
+	}
+	for _, tc := range tt {
+		t.Run(tc.input, func(t *testing.T) {
+			tokenizer := &Tokenizer{istring: tc.input}
+			parser := &Parser{tokenizer: tokenizer}
+			result, err := parser.decompress()
+			if err != nil {
+				t.Fatalf("Error in decompress, %v", err)
+			}
+			if result != tc.expected {
+				t.Errorf("expected: %s, got: %s", tc.expected, result)
+			}
+		})
+	}
+}
