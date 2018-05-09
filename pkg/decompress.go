@@ -26,14 +26,6 @@ type Tokenizer struct {
 	istring string
 }
 
-func isNumber(s string) bool {
-	_, err := strconv.Atoi(s)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func isBracket(s string) bool {
 	if s == "[" || s == "]" {
 		return true
@@ -80,57 +72,98 @@ func (t *Tokenizer) nextToken() (*Token, error) {
 
 type Parser struct {
 	tokenizer *Tokenizer
+	lookahead *Token
+}
+
+func (p *Parser) match(tok *Token) error {
+	if tok.value != p.lookahead.value {
+		return fmt.Errorf("Error token does not match: expected: %v, got: %v", p.lookahead, tok)
+	}
+	token, err := p.tokenizer.nextToken()
+	if err != nil {
+		return fmt.Errorf("Error in expression getting token: %v", err)
+	}
+	p.lookahead = token
+	return nil
 }
 
 func (p *Parser) expression() (string, error) {
+	if p.lookahead.kind == Number {
+		n, err := strconv.Atoi(p.lookahead.value)
+		if err != nil {
+			return "", fmt.Errorf("Number could not be parsed, value: %s", p.lookahead.value)
+		}
+
+		// match number
+		err = p.match(p.lookahead)
+		if err != nil {
+			return "", fmt.Errorf("Error matching number: %v", err)
+		}
+
+		// match opening bracket
+		err = p.match(&Token{kind: Bracket, value: "["})
+		if err != nil {
+			return "", fmt.Errorf("Error matching opening bracket: %v", err)
+		}
+
+		// recursive call
+		result, err := p.expression()
+		if err != nil {
+			return "", fmt.Errorf("Error in expression: %v", err)
+		}
+
+		final := ""
+		for i := 0; i < n; i++ {
+			final += result
+		}
+		// match closing bracket
+		err = p.match(&Token{kind: Bracket, value: "]"})
+		if err != nil {
+			return "", fmt.Errorf("Error matching closing bracket: %v", err)
+		}
+
+		if p.lookahead.value == "]" {
+			return final, nil
+		}
+
+		if p.lookahead.kind == Letter {
+			value := p.lookahead.value
+			err := p.match(p.lookahead)
+			if err != nil {
+				return "", fmt.Errorf("Error matching inner letter: %v", err)
+			}
+			return final + value, nil
+		}
+
+		if p.lookahead.kind == Number {
+			result2, err := p.expression()
+			if err != nil {
+				return "", fmt.Errorf("Error parsing Number for after expression, lookahead: %v", p.lookahead)
+			}
+			return final + result2, nil
+		}
+
+		return final, nil
+	}
+
+	if p.lookahead.kind == Letter {
+		value := p.lookahead.value
+		err := p.match(p.lookahead)
+		if err != nil {
+			return "", fmt.Errorf("Error matching letter: %v", err)
+		}
+		return value, nil
+	}
+
+	return "", fmt.Errorf("Parser error, not in first, got token: %s", p.lookahead.value)
+}
+
+func (p *Parser) decompress() (string, error) {
 	token, err := p.tokenizer.nextToken()
 	if err != nil {
 		return "", fmt.Errorf("Error in expression getting token: %v", err)
 	}
-
-	if token.kind == Number {
-		// match opening bracket
-		token, err = p.tokenizer.nextToken()
-		if err != nil {
-			return "", fmt.Errorf("Parsing error, expect opening bracket, error %v", err)
-		}
-		if token.kind != Bracket && token.value != "[" {
-			return "", fmt.Errorf("Parsing error, expected opening bracked, got %s, token.value")
-		}
-
-		// recusive call
-		result, err := p.expression()
-
-		// match closing bracket
-		token, err = p.tokenizer.nextToken()
-		if err != nil {
-			return "", fmt.Errorf("Parsing error, expected closing bracket, error: %v", err)
-		}
-		if token.kind != Bracket && token.value != "]" {
-			return "", fmt.Errorf("Parsing error, expected closing bracked, got %s, token.value")
-		}
-
-		// match letter or empty
-		token, err = p.tokenizer.nextToken()
-		if err != nil {
-			return "", fmt.Errorf("Parsing error, expected letter or empty, error: %v", err)
-		}
-		if token.kind == Empty {
-			return result, nil
-		}
-		if token.kind == Letter {
-			return result + token.value, nil
-		}
-	}
-
-	if token.kind == Letter {
-		return token.value, nil
-	}
-
-	return "", fmt.Errorf("Parser error, not match in expression, got token: %s", token.value)
-}
-
-func (p *Parser) decompress(s string) (string, error) {
+	p.lookahead = token
 	result, err := p.expression()
 	if err != nil {
 		return "", err
