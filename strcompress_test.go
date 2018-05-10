@@ -51,6 +51,8 @@ func TestDecompress(t *testing.T) {
 		{"2[3[a]b]", "aaabaaab", nil},
 		{"3[abc]4[ab]c", "abcabcabcababababc", nil},
 		{"1[1[1[xx]]]", "xx", nil},
+		{"0[a]", "", nil},
+		{"1[]", "", nil},
 	}
 	for _, tc := range tt {
 		t.Run(tc.input, func(t *testing.T) {

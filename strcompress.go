@@ -103,6 +103,7 @@ func (p *Parser) match(tok *Token) error {
 }
 
 func (p *Parser) expression() (string, error) {
+	fmt.Printf("expression, lookahead: %v\n", p.lookahead)
 	if p.lookahead.kind == Number {
 		n, err := strconv.Atoi(p.lookahead.value)
 		if err != nil {
@@ -119,6 +120,11 @@ func (p *Parser) expression() (string, error) {
 		err = p.match(&Token{kind: Bracket, value: "["})
 		if err != nil {
 			return "", fmt.Errorf("Error matching opening bracket: %v", err)
+		}
+
+		// handle empty brackets
+		if p.lookahead.value == "]" {
+			return "", nil
 		}
 
 		// recursive call
