@@ -106,7 +106,7 @@ func (p *Parser) expression() (string, error) {
 	if p.lookahead.kind == Number {
 		n, err := strconv.Atoi(p.lookahead.value)
 		if err != nil {
-			return "", fmt.Errorf("Number could not be parsed, value: %s", p.lookahead.value)
+			return "", fmt.Errorf("Number could not be converted, value: %s", p.lookahead.value)
 		}
 
 		// match number
@@ -127,9 +127,9 @@ func (p *Parser) expression() (string, error) {
 			return "", fmt.Errorf("Error in expression: %v", err)
 		}
 
-		final := ""
+		accumulator := ""
 		for i := 0; i < n; i++ {
-			final += result
+			accumulator += result
 		}
 		// match closing bracket
 		err = p.match(&Token{kind: Bracket, value: "]"})
@@ -138,27 +138,27 @@ func (p *Parser) expression() (string, error) {
 		}
 
 		if p.lookahead.value == "]" {
-			return final, nil
+			return accumulator, nil
 		}
 
 		if p.lookahead.kind == Letter {
 			value := p.lookahead.value
 			err := p.match(p.lookahead)
 			if err != nil {
-				return "", fmt.Errorf("Error matching inner letter: %v", err)
+				return "", fmt.Errorf("Error matching letter after closing bracket: %v", err)
 			}
-			return final + value, nil
+			return accumulator + value, nil
 		}
 
 		if p.lookahead.kind == Number {
 			result2, err := p.expression()
 			if err != nil {
-				return "", fmt.Errorf("Error parsing Number for after expression, lookahead: %v", p.lookahead)
+				return "", fmt.Errorf("Error parsing Number for after closing bracket, lookahead: %v", p.lookahead)
 			}
-			return final + result2, nil
+			return accumulator + result2, nil
 		}
 
-		return final, nil
+		return accumulator, nil
 	}
 
 	if p.lookahead.kind == Letter {
@@ -176,7 +176,7 @@ func (p *Parser) expression() (string, error) {
 func (p *Parser) decompress() (string, error) {
 	token, err := p.tokenizer.nextToken()
 	if err != nil {
-		return "", fmt.Errorf("Error in expression getting token: %v", err)
+		return "", fmt.Errorf("Error in expression getting first token: %v", err)
 	}
 	p.lookahead = token
 	result, err := p.expression()
